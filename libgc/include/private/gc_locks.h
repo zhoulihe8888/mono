@@ -216,7 +216,7 @@
         }
 #       define GC_CLEAR_DEFINED
 #    endif /* ALPHA */
-#    ifdef ARM32
+#    if defined(ARM32) && !defined(PLATFORM_STV) // work-around for SamsungTV. SpinLock currently does not work correctly.
         inline static int GC_test_and_set(volatile unsigned int *addr) {
 #if defined(__ARM_ARCH_6__) || defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7__)
           int ret, tmp;
@@ -229,18 +229,11 @@
                                  : "=&r" (ret), "=&r" (tmp)
                                  : "r" (1), "r" (addr)
                                  : "memory", "cc");
+          __sync_synchronize(); //'acquire' barrier
           return ret;
 #else
-          int oldval;
-          /* SWP on ARM is very similar to XCHG on x86.  Doesn't lock the
-           * bus because there are no SMP ARM machines.  If/when there are,
-           * this code will likely need to be updated. */
-          /* See linuxthreads/sysdeps/arm/pt-machine.h in glibc-2.1 */
-          __asm__ __volatile__("swp %0, %1, [%2]"
-      		  	     : "=&r"(oldval)
-      			     : "r"(1), "r"(addr)
-			     : "memory");
-          return oldval;
+          // Not supported.
+         #error
 #endif
         }
 #       define GC_TEST_AND_SET_DEFINED
