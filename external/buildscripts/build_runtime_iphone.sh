@@ -102,6 +102,7 @@ build_arm_mono ()
 build_iphone_runtime () 
 {
 	echo "Building iPhone runtime"
+	export LIBTOOLIZE=`which glibtoolize`
 	build_arm_mono "armv7" $1 || exit 1
 
 	cp builds/embedruntimes/iphone/libmono-armv7.a builds/embedruntimes/iphone/libmono.a
@@ -121,6 +122,13 @@ build_iphone_crosscompiler ()
 	export CPP="$CC -E"
 	export LD=$CC
 	export MACSDKOPTIONS="-mmacosx-version-min=$MAC_SDK_VERSION -isysroot $XCOMP_ASPEN_ROOT"
+
+	# iOS build agents have different libtools in different places :-|
+	export LIBTOOLIZE=`which glibtoolize`
+	if test "x$LIBTOOLIZE" = x; then
+		export LIBTOOLIZE=`which libtoolize`
+	fi
+	export LIBTOOL=`echo $LIBTOOLIZE | sed 's/ize$//'`
 
 	export PLATFORM_IPHONE_XCOMP=1	
 
