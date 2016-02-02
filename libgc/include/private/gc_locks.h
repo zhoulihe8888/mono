@@ -229,7 +229,9 @@
                                  : "=&r" (ret), "=&r" (tmp)
                                  : "r" (1), "r" (addr)
                                  : "memory", "cc");
-          __sync_synchronize(); //'acquire' barrier
+
+          __sync_synchronize(); // 'acquire' barrier
+
           return ret;
 #else
           int oldval;
