@@ -1209,8 +1209,10 @@ static const char info[] =
 #ifdef PLATFORM_WIN32
 BOOL APIENTRY DllMain (HMODULE module_handle, DWORD reason, LPVOID reserved)
 {
+#if defined(GC_DLL) || defined(GC_INSIDE_DLL)
 	if (!GC_DllMain (module_handle, reason, reserved))
 		return FALSE;
+#endif
 
 	switch (reason)
 	{
@@ -1222,6 +1224,9 @@ BOOL APIENTRY DllMain (HMODULE module_handle, DWORD reason, LPVOID reserved)
 		if (coree_module_handle)
 			FreeLibrary (coree_module_handle);
 #endif
+		break;
+	case DLL_THREAD_DETACH:
+		mono_thread_exiting ();
 		break;
 	}
 	return TRUE;
@@ -1927,6 +1932,18 @@ void
 mono_jit_cleanup (MonoDomain *domain)
 {
 	mini_cleanup (domain);
+}
+
+void
+mono_unity_jit_cleanup (MonoDomain *domain)
+{
+	// Unity needs these, not sure why
+	mono_threads_set_shutting_down ();
+	mono_runtime_set_shutting_down ();
+	mono_thread_pool_cleanup ();
+	mono_thread_suspend_all_other_threads ();
+
+	mono_jit_cleanup (domain);
 }
 
 void

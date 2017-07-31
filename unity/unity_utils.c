@@ -144,19 +144,9 @@ mono_unity_class_is_abstract (MonoClass* klass)
 }
 
 void
-unity_mono_install_memory_callbacks(MonoMemoryCallbacks* callbacks)
+mono_unity_install_memory_callbacks (MonoMemoryCallbacks* callbacks)
 {
 	g_mem_set_callbacks (callbacks);
-}
-
-void mono_unity_thread_clear_domain_fields (void)
-{
-	/*
-	 we need to clear fields that may reference objects living in non-root appdomain
-	 since the objects will live but their vtables will be destroyed when domain is torn down.
-	 */
-	MonoThread* thread = mono_thread_current ();
-	thread->principal = NULL;
 }
 
 // classes_ref is a preallocated array of *length_ref MonoClass*
@@ -197,4 +187,115 @@ gboolean
 unity_mono_method_is_generic (MonoMethod* method)
 {
 	return method->is_generic;
+}
+
+MonoMethod*
+unity_mono_reflection_method_get_method(MonoReflectionMethod* mrf)
+{
+	if(!mrf)
+		return NULL;
+
+	return mrf->method;
+}
+
+// layer to proxy differences between old and new Mono
+void
+mono_unity_runtime_set_main_args (int argc, const char* argv[])
+{
+	mono_set_commandline_arguments (argc, argv, NULL);
+}
+
+MonoString*
+mono_unity_string_empty_wrapper ()
+{
+	return mono_string_new (mono_domain_get (), "");
+}
+
+MonoArray*
+mono_unity_array_new_2d (MonoDomain *domain, MonoClass *eklass, size_t size0, size_t size1)
+{
+	mono_array_size_t sizes[] = { (mono_array_size_t)size0, (mono_array_size_t)size1 };
+	MonoClass* ac = mono_array_class_get (eklass, 2);
+
+	return mono_array_new_full (domain, ac, sizes, NULL);
+}
+
+MonoArray*
+mono_unity_array_new_3d (MonoDomain *domain, MonoClass *eklass, size_t size0, size_t size1, size_t size2)
+{
+	mono_array_size_t sizes[] = { (mono_array_size_t)size0, (mono_array_size_t)size1, (mono_array_size_t)size2 };
+	MonoClass* ac = mono_array_class_get (eklass, 3);
+
+	return mono_array_new_full (domain, ac, sizes, NULL);
+}
+
+void
+mono_unity_domain_set_config (MonoDomain *domain, const char *base_dir, const char *config_file_name)
+{
+	// nothing on old Mono
+}
+
+void
+mono_unity_g_free (void* ptr)
+{
+	g_free (ptr);
+}
+
+MonoException*
+mono_unity_loader_get_last_error_and_error_prepare_exception ()
+{
+	// We need to call these two methods to clear the thread local
+	// loader error status in mono. If not we'll randomly process the error
+	// the next time it's checked.
+	void* last_error = mono_loader_get_last_error ();
+	if (last_error == NULL)
+		return NULL;
+
+	return mono_loader_error_prepare_exception (last_error);
+}
+
+MonoClass*
+mono_unity_class_get_generic_type_definition (MonoClass* klass)
+{
+	return klass->generic_class ? mono_class_get_generic_type_definition (klass) : NULL;
+}
+
+MonoClass*
+mono_unity_class_get_generic_parameter_at (MonoClass* klass, guint32 index)
+{
+	if (!klass->generic_container || index >= klass->generic_container->type_argc)
+		return NULL;
+
+	return mono_class_from_generic_parameter (mono_generic_container_get_param (klass->generic_container, index), klass->image, FALSE);
+}
+
+guint32
+mono_unity_class_get_generic_parameter_count (MonoClass* klass)
+{
+	if (!klass->generic_container)
+		return 0;
+
+	return klass->generic_container->type_argc;
+}
+
+static char* data_dir = NULL;
+void
+mono_unity_set_data_dir(const char* dir)
+{
+	if (data_dir)
+		g_free(data_dir);
+
+	data_dir = g_new(char*, strlen(dir) + 1);
+	strcpy(data_dir, dir);
+}
+ 
+char*
+mono_unity_get_data_dir()
+{
+	return data_dir;
+}
+
+MonoClass* mono_unity_class_get(MonoImage* image, guint32 type_token)
+{
+	return mono_class_get(image, type_token);
 }

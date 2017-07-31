@@ -388,7 +388,7 @@
       <Optimization>Disabled</Optimization>
       <InlineFunctionExpansion>Default</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\libgc\include;..\;..\mono\;..\mono\jit;..\mono\eglib\src;..\..\mono\eglib\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\libgc\include;..\;..\eglib\src;..\mono;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_DEBUG;__x86_64__;TARGET_AMD64;WIN64;_WIN64;WIN32;_WIN32;__WIN32__;_WINDOWS;WINDOWS;PLATFORM_WIN32;TARGET_WIN32;_CRT_SECURE_NO_DEPRECATE;GC_NOT_DLL;HAVE_CONFIG_H;WINVER=0x0500;_WIN32_WINNT=0x0500;_WIN32_IE=0x0501;WIN32_THREADS;FD_SETSIZE=1024;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -656,6 +656,7 @@
     <ClInclude Include="..\mono\mini\regalloc.h" />
     <ClInclude Include="..\mono\mini\ssapre.h" />
     <ClInclude Include="..\mono\mini\trace.h" />
+    <ClInclude Include="..\unity\unity_memory_info.h" />
     <CustomBuildStep Include="..\mono\mini\mini-x86.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug_eglib|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
@@ -671,6 +672,10 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
     </CustomBuildStep>
     <ClInclude Include="..\mono\mini\mini-arm.h" />
+    <ClInclude Include="..\mono\xamarin-android\logger.h" />
+    <ClInclude Include="..\mono\xamarin-android\monodroid.h" />
+    <ClInclude Include="..\mono\xamarin-android\unity_getifaddrs.h" />
+    <ClInclude Include="..\mono\xamarin-android\xamarin_getifaddrs.h" />
     <ClInclude Include="..\unity\libmono_vcdefs.h" />
   </ItemGroup>
   <ItemGroup>
@@ -4266,8 +4271,11 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="..\mono\xamarin-android\unity_getifaddrs.c" />
+    <ClCompile Include="..\mono\xamarin-android\xamarin_getifaddrs.c" />
     <ClCompile Include="..\unity\unity_cross_utils.c" />
     <ClCompile Include="..\unity\unity_liveness.c" />
+    <ClCompile Include="..\unity\unity_memory_info.c" />
     <ClCompile Include="..\unity\unity_utils.c" />
   </ItemGroup>
   <ItemGroup>

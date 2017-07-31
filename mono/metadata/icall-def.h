@@ -333,6 +333,7 @@ ICALL(MONOIO_15, "MoveFile(string,string,System.IO.MonoIOError&)", ves_icall_Sys
 #endif /* !PLATFORM_RO_FS */
 ICALL(MONOIO_16, "Open(string,System.IO.FileMode,System.IO.FileAccess,System.IO.FileShare,System.IO.FileOptions,System.IO.MonoIOError&)", ves_icall_System_IO_MonoIO_Open)
 ICALL(MONOIO_17, "Read(intptr,byte[],int,int,System.IO.MonoIOError&)", ves_icall_System_IO_MonoIO_Read)
+ICALL(MONOIO_35, "RemapPath(string,string&)", ves_icall_System_IO_MonoIO_RemapPath)
 #ifndef PLATFORM_RO_FS
 ICALL(MONOIO_18, "RemoveDirectory(string,System.IO.MonoIOError&)", ves_icall_System_IO_MonoIO_RemoveDirectory)
 ICALL(MONOIO_18M, "ReplaceFile(string,string,string,bool,System.IO.MonoIOError&)", ves_icall_System_IO_MonoIO_ReplaceFile)
@@ -428,6 +429,11 @@ ICALL_TYPE(NDNS, "System.Net.Dns", NDNS_1)
 ICALL(NDNS_1, "GetHostByAddr_internal(string,string&,string[]&,string[]&)", ves_icall_System_Net_Dns_GetHostByAddr_internal)
 ICALL(NDNS_2, "GetHostByName_internal(string,string&,string[]&,string[]&)", ves_icall_System_Net_Dns_GetHostByName_internal)
 ICALL(NDNS_3, "GetHostName_internal(string&)", ves_icall_System_Net_Dns_GetHostName_internal)
+
+ICALL_TYPE(LINNETIF, "System.Net.NetworkInformation.LinuxNetworkInterface", LINNETIF_1)
+ICALL(LINNETIF_1, "FreeInterfaceAddresses", ves_icall_System_Net_NetworkInformation_LinuxNetworkInterface_FreeInterfaceAddresses)
+ICALL(LINNETIF_2, "GetInterfaceAddresses", ves_icall_System_Net_NetworkInformation_LinuxNetworkInterface_GetInterfaceAddresses)
+ICALL(LINNETIF_3, "InitializeInterfaceAddresses", ves_icall_System_Net_NetworkInformation_LinuxNetworkInterface_InitializeInterfaceAddresses)
 
 ICALL_TYPE(SOCK, "System.Net.Sockets.Socket", SOCK_1)
 ICALL(SOCK_1, "Accept_internal(intptr,int&,bool)", ves_icall_System_Net_Sockets_Socket_Accept_internal)

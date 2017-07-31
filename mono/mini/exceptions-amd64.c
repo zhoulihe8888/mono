@@ -160,10 +160,33 @@ LONG CALLBACK seh_vectored_exception_handler(EXCEPTION_POINTERS* ep)
 	sctx->rsi = ctx->Rsi;
 	sctx->rdi = ctx->Rdi;
 	sctx->rip = ctx->Rip;
+	sctx->r8 = ctx->R8;
+	sctx->r9 = ctx->R9;
+	sctx->r10 = ctx->R10;
+	sctx->r11 = ctx->R11;
 	sctx->r12 = ctx->R12;
 	sctx->r13 = ctx->R13;
 	sctx->r14 = ctx->R14;
 	sctx->r15 = ctx->R15;
+
+	memcpy(&sctx->fregs[AMD64_XMM0], &ctx->Xmm0, sizeof(MonoContextSimdReg));
+	memcpy(&sctx->fregs[AMD64_XMM1], &ctx->Xmm1, sizeof(MonoContextSimdReg));
+	memcpy(&sctx->fregs[AMD64_XMM2], &ctx->Xmm2, sizeof(MonoContextSimdReg));
+	memcpy(&sctx->fregs[AMD64_XMM3], &ctx->Xmm3, sizeof(MonoContextSimdReg));
+	memcpy(&sctx->fregs[AMD64_XMM4], &ctx->Xmm4, sizeof(MonoContextSimdReg));
+	memcpy(&sctx->fregs[AMD64_XMM5], &ctx->Xmm5, sizeof(MonoContextSimdReg));
+	memcpy(&sctx->fregs[AMD64_XMM6], &ctx->Xmm6, sizeof(MonoContextSimdReg));
+	memcpy(&sctx->fregs[AMD64_XMM7], &ctx->Xmm7, sizeof(MonoContextSimdReg));
+	memcpy(&sctx->fregs[AMD64_XMM8], &ctx->Xmm8, sizeof(MonoContextSimdReg));
+	memcpy(&sctx->fregs[AMD64_XMM9], &ctx->Xmm9, sizeof(MonoContextSimdReg));
+	memcpy(&sctx->fregs[AMD64_XMM10], &ctx->Xmm10, sizeof(MonoContextSimdReg));
+	memcpy(&sctx->fregs[AMD64_XMM11], &ctx->Xmm11, sizeof(MonoContextSimdReg));
+	memcpy(&sctx->fregs[AMD64_XMM12], &ctx->Xmm12, sizeof(MonoContextSimdReg));
+	memcpy(&sctx->fregs[AMD64_XMM13], &ctx->Xmm13, sizeof(MonoContextSimdReg));
+	memcpy(&sctx->fregs[AMD64_XMM14], &ctx->Xmm14, sizeof(MonoContextSimdReg));
+	memcpy(&sctx->fregs[AMD64_XMM15], &ctx->Xmm15, sizeof(MonoContextSimdReg));
+
+	sctx->has_fregs = TRUE;
 
 	switch (er->ExceptionCode) {
 	case EXCEPTION_STACK_OVERFLOW:
@@ -204,11 +227,32 @@ LONG CALLBACK seh_vectored_exception_handler(EXCEPTION_POINTERS* ep)
 		ctx->Rsi = sctx->rsi;
 		ctx->Rbx = sctx->rbx;
 		ctx->Rbp = sctx->rbp;
+		ctx->R8 = sctx->r8;
+		ctx->R9 = sctx->r9;
+		ctx->R10 = sctx->r10;
+		ctx->R11 = sctx->r11;
 		ctx->R12 = sctx->r12;
 		ctx->R13 = sctx->r13;
 		ctx->R14 = sctx->r14;
 		ctx->R15 = sctx->r15;
 		ctx->Rip = sctx->rip;
+
+		memcpy(&ctx->Xmm0, &sctx->fregs[AMD64_XMM0], sizeof(MonoContextSimdReg));
+		memcpy(&ctx->Xmm1, &sctx->fregs[AMD64_XMM1], sizeof(MonoContextSimdReg));
+		memcpy(&ctx->Xmm2, &sctx->fregs[AMD64_XMM2], sizeof(MonoContextSimdReg));
+		memcpy(&ctx->Xmm3, &sctx->fregs[AMD64_XMM3], sizeof(MonoContextSimdReg));
+		memcpy(&ctx->Xmm4, &sctx->fregs[AMD64_XMM4], sizeof(MonoContextSimdReg));
+		memcpy(&ctx->Xmm5, &sctx->fregs[AMD64_XMM5], sizeof(MonoContextSimdReg));
+		memcpy(&ctx->Xmm6, &sctx->fregs[AMD64_XMM6], sizeof(MonoContextSimdReg));
+		memcpy(&ctx->Xmm7, &sctx->fregs[AMD64_XMM7], sizeof(MonoContextSimdReg));
+		memcpy(&ctx->Xmm8, &sctx->fregs[AMD64_XMM8], sizeof(MonoContextSimdReg));
+		memcpy(&ctx->Xmm9, &sctx->fregs[AMD64_XMM9], sizeof(MonoContextSimdReg));
+		memcpy(&ctx->Xmm10, &sctx->fregs[AMD64_XMM10], sizeof(MonoContextSimdReg));
+		memcpy(&ctx->Xmm11, &sctx->fregs[AMD64_XMM11], sizeof(MonoContextSimdReg));
+		memcpy(&ctx->Xmm12, &sctx->fregs[AMD64_XMM12], sizeof(MonoContextSimdReg));
+		memcpy(&ctx->Xmm13, &sctx->fregs[AMD64_XMM13], sizeof(MonoContextSimdReg));
+		memcpy(&ctx->Xmm14, &sctx->fregs[AMD64_XMM14], sizeof(MonoContextSimdReg));
+		memcpy(&ctx->Xmm15, &sctx->fregs[AMD64_XMM15], sizeof(MonoContextSimdReg));
 
 		/* Volatile But should not matter?*/
 		ctx->Rax = sctx->rax;
@@ -272,6 +316,9 @@ mono_arch_get_restore_context_full (guint32 *code_size, MonoJumpInfo **ji, gbool
 {
 	guint8 *start = NULL;
 	guint8 *code;
+	int i;
+	int fregs_offset;
+	guint8 *br;
 
 	/* restore_contect (MonoContext *ctx) */
 
@@ -281,6 +328,21 @@ mono_arch_get_restore_context_full (guint32 *code_size, MonoJumpInfo **ji, gbool
 
 	amd64_mov_reg_reg (code, AMD64_R11, AMD64_ARG_REG1, 8);
 
+	/* Only restore fregs if the context has them set */
+	amd64_mov_reg_membase (code, AMD64_R11, AMD64_R11, G_STRUCT_OFFSET (MonoContext, has_fregs), sizeof(gboolean));
+	amd64_test_reg_reg (code, AMD64_R11, AMD64_R11);
+	br = code;
+	amd64_branch32 (code, X86_CC_Z, 0, FALSE);
+
+	amd64_mov_reg_reg (code, AMD64_R11, AMD64_ARG_REG1, 8);
+	fregs_offset = G_STRUCT_OFFSET (MonoContext, fregs);
+	for (i = 0; i < AMD64_XMM_NREG; ++i) {
+		amd64_sse_movups_reg_membase (code, i, AMD64_R11, fregs_offset + (i * sizeof (MonoContextSimdReg)));
+	}
+
+	mono_amd64_patch (br, code);
+
+	amd64_mov_reg_reg (code, AMD64_R11, AMD64_ARG_REG1, 8);
 	/* Restore all registers except %rip and %r11 */
 	amd64_mov_reg_membase (code, AMD64_RAX, AMD64_R11,  G_STRUCT_OFFSET (MonoContext, rax), 8);
 	amd64_mov_reg_membase (code, AMD64_RCX, AMD64_R11,  G_STRUCT_OFFSET (MonoContext, rcx), 8);
@@ -289,9 +351,9 @@ mono_arch_get_restore_context_full (guint32 *code_size, MonoJumpInfo **ji, gbool
 	amd64_mov_reg_membase (code, AMD64_RBP, AMD64_R11,  G_STRUCT_OFFSET (MonoContext, rbp), 8);
 	amd64_mov_reg_membase (code, AMD64_RSI, AMD64_R11,  G_STRUCT_OFFSET (MonoContext, rsi), 8);
 	amd64_mov_reg_membase (code, AMD64_RDI, AMD64_R11,  G_STRUCT_OFFSET (MonoContext, rdi), 8);
-	//amd64_mov_reg_membase (code, AMD64_R8, AMD64_R11,  G_STRUCT_OFFSET (MonoContext, r8), 8);
-	//amd64_mov_reg_membase (code, AMD64_R9, AMD64_R11,  G_STRUCT_OFFSET (MonoContext, r9), 8);
-	//amd64_mov_reg_membase (code, AMD64_R10, AMD64_R11,  G_STRUCT_OFFSET (MonoContext, r10), 8);
+	amd64_mov_reg_membase (code, AMD64_R8, AMD64_R11,  G_STRUCT_OFFSET (MonoContext, r8), 8);
+	amd64_mov_reg_membase (code, AMD64_R9, AMD64_R11,  G_STRUCT_OFFSET (MonoContext, r9), 8);
+	amd64_mov_reg_membase (code, AMD64_R10, AMD64_R11,  G_STRUCT_OFFSET (MonoContext, r10), 8);
 	amd64_mov_reg_membase (code, AMD64_R12, AMD64_R11,  G_STRUCT_OFFSET (MonoContext, r12), 8);
 	amd64_mov_reg_membase (code, AMD64_R13, AMD64_R11,  G_STRUCT_OFFSET (MonoContext, r13), 8);
 	amd64_mov_reg_membase (code, AMD64_R14, AMD64_R11,  G_STRUCT_OFFSET (MonoContext, r14), 8);
@@ -310,6 +372,8 @@ mono_arch_get_restore_context_full (guint32 *code_size, MonoJumpInfo **ji, gbool
 
 	/* jump to the saved IP */
 	amd64_jump_reg (code, AMD64_R11);
+
+	g_assert ((code - start) < 256);
 
 	mono_arch_flush_icache (start, code - start);
 
@@ -431,6 +495,8 @@ mono_amd64_throw_exception (guint64 dummy1, guint64 dummy2, guint64 dummy3, guin
 	ctx.rax = rax;
 	ctx.rcx = rcx;
 	ctx.rdx = rdx;
+
+	ctx.has_fregs = FALSE;
 
 	if (mono_object_isinst (exc, mono_defaults.exception_class)) {
 		MonoException *mono_ex = (MonoException*)exc;
@@ -909,6 +975,7 @@ mono_arch_sigctx_to_monoctx (void *sigctx, MonoContext *mctx)
 	mctx->r15 = gregs [REG_R15];
 #elif defined(MONO_ARCH_USE_SIGACTION)
 	ucontext_t *ctx = (ucontext_t*)sigctx;
+	mctx->has_fregs = TRUE;
 
 	mctx->rax = UCONTEXT_REG_RAX (ctx);
 	mctx->rbx = UCONTEXT_REG_RBX (ctx);
@@ -919,10 +986,31 @@ mono_arch_sigctx_to_monoctx (void *sigctx, MonoContext *mctx)
 	mctx->rsi = UCONTEXT_REG_RSI (ctx);
 	mctx->rdi = UCONTEXT_REG_RDI (ctx);
 	mctx->rip = UCONTEXT_REG_RIP (ctx);
+	mctx->r8 = UCONTEXT_REG_R8 (ctx);
+	mctx->r9 = UCONTEXT_REG_R9 (ctx);
+	mctx->r10 = UCONTEXT_REG_R10 (ctx);
+	mctx->r11 = UCONTEXT_REG_R11 (ctx);
 	mctx->r12 = UCONTEXT_REG_R12 (ctx);
 	mctx->r13 = UCONTEXT_REG_R13 (ctx);
 	mctx->r14 = UCONTEXT_REG_R14 (ctx);
 	mctx->r15 = UCONTEXT_REG_R15 (ctx);
+
+	memcpy(&mctx->fregs[AMD64_XMM0], &UCONTEXT_REG_FPR0(ctx), sizeof(MonoContextSimdReg));
+	memcpy(&mctx->fregs[AMD64_XMM1], &UCONTEXT_REG_FPR1(ctx), sizeof(MonoContextSimdReg));
+	memcpy(&mctx->fregs[AMD64_XMM2], &UCONTEXT_REG_FPR2(ctx), sizeof(MonoContextSimdReg));
+	memcpy(&mctx->fregs[AMD64_XMM3], &UCONTEXT_REG_FPR3(ctx), sizeof(MonoContextSimdReg));
+	memcpy(&mctx->fregs[AMD64_XMM4], &UCONTEXT_REG_FPR4(ctx), sizeof(MonoContextSimdReg));
+	memcpy(&mctx->fregs[AMD64_XMM5], &UCONTEXT_REG_FPR5(ctx), sizeof(MonoContextSimdReg));
+	memcpy(&mctx->fregs[AMD64_XMM6], &UCONTEXT_REG_FPR6(ctx), sizeof(MonoContextSimdReg));
+	memcpy(&mctx->fregs[AMD64_XMM7], &UCONTEXT_REG_FPR7(ctx), sizeof(MonoContextSimdReg));
+	memcpy(&mctx->fregs[AMD64_XMM8], &UCONTEXT_REG_FPR8(ctx), sizeof(MonoContextSimdReg));
+	memcpy(&mctx->fregs[AMD64_XMM9], &UCONTEXT_REG_FPR9(ctx), sizeof(MonoContextSimdReg));
+	memcpy(&mctx->fregs[AMD64_XMM10], &UCONTEXT_REG_FPR10(ctx), sizeof(MonoContextSimdReg));
+	memcpy(&mctx->fregs[AMD64_XMM11], &UCONTEXT_REG_FPR11(ctx), sizeof(MonoContextSimdReg));
+	memcpy(&mctx->fregs[AMD64_XMM12], &UCONTEXT_REG_FPR12(ctx), sizeof(MonoContextSimdReg));
+	memcpy(&mctx->fregs[AMD64_XMM13], &UCONTEXT_REG_FPR13(ctx), sizeof(MonoContextSimdReg));
+	memcpy(&mctx->fregs[AMD64_XMM14], &UCONTEXT_REG_FPR14(ctx), sizeof(MonoContextSimdReg));
+	memcpy(&mctx->fregs[AMD64_XMM15], &UCONTEXT_REG_FPR15(ctx), sizeof(MonoContextSimdReg));
 #else
 	MonoContext *ctx = (MonoContext *)sigctx;
 
@@ -935,10 +1023,15 @@ mono_arch_sigctx_to_monoctx (void *sigctx, MonoContext *mctx)
 	mctx->rsi = ctx->rsi;
 	mctx->rdi = ctx->rdi;
 	mctx->rip = ctx->rip;
+	mctx->r8 = ctx->r8;
+	mctx->r9 = ctx->r9;
+	mctx->r10 = ctx->r10;
+	mctx->r11 = ctx->r11;
 	mctx->r12 = ctx->r12;
 	mctx->r13 = ctx->r13;
 	mctx->r14 = ctx->r14;
 	mctx->r15 = ctx->r15;
+	memcpy (&mctx->fregs[0], &ctx->fregs[0], sizeof (MonoContextSimdReg) * AMD64_XMM_NREG);
 #endif
 }
 
@@ -975,10 +1068,31 @@ mono_arch_monoctx_to_sigctx (MonoContext *mctx, void *sigctx)
 	UCONTEXT_REG_RSI (ctx) = mctx->rsi;
 	UCONTEXT_REG_RDI (ctx) = mctx->rdi;
 	UCONTEXT_REG_RIP (ctx) = mctx->rip;
+	UCONTEXT_REG_R8 (ctx) = mctx->r8;
+	UCONTEXT_REG_R9 (ctx) = mctx->r9;
+	UCONTEXT_REG_R10 (ctx) = mctx->r10;
+	UCONTEXT_REG_R11 (ctx) = mctx->r11;
 	UCONTEXT_REG_R12 (ctx) = mctx->r12;
 	UCONTEXT_REG_R13 (ctx) = mctx->r13;
 	UCONTEXT_REG_R14 (ctx) = mctx->r14;
 	UCONTEXT_REG_R15 (ctx) = mctx->r15;
+
+	memcpy(&UCONTEXT_REG_FPR0(ctx), &mctx->fregs[AMD64_XMM0], sizeof(MonoContextSimdReg));
+	memcpy(&UCONTEXT_REG_FPR1(ctx), &mctx->fregs[AMD64_XMM1], sizeof(MonoContextSimdReg));
+	memcpy(&UCONTEXT_REG_FPR2(ctx), &mctx->fregs[AMD64_XMM2], sizeof(MonoContextSimdReg));
+	memcpy(&UCONTEXT_REG_FPR3(ctx), &mctx->fregs[AMD64_XMM3], sizeof(MonoContextSimdReg));
+	memcpy(&UCONTEXT_REG_FPR4(ctx), &mctx->fregs[AMD64_XMM4], sizeof(MonoContextSimdReg));
+	memcpy(&UCONTEXT_REG_FPR5(ctx), &mctx->fregs[AMD64_XMM5], sizeof(MonoContextSimdReg));
+	memcpy(&UCONTEXT_REG_FPR6(ctx), &mctx->fregs[AMD64_XMM6], sizeof(MonoContextSimdReg));
+	memcpy(&UCONTEXT_REG_FPR7(ctx), &mctx->fregs[AMD64_XMM7], sizeof(MonoContextSimdReg));
+	memcpy(&UCONTEXT_REG_FPR8(ctx), &mctx->fregs[AMD64_XMM8], sizeof(MonoContextSimdReg));
+	memcpy(&UCONTEXT_REG_FPR9(ctx), &mctx->fregs[AMD64_XMM9], sizeof(MonoContextSimdReg));
+	memcpy(&UCONTEXT_REG_FPR10(ctx), &mctx->fregs[AMD64_XMM10], sizeof(MonoContextSimdReg));
+	memcpy(&UCONTEXT_REG_FPR11(ctx), &mctx->fregs[AMD64_XMM11], sizeof(MonoContextSimdReg));
+	memcpy(&UCONTEXT_REG_FPR12(ctx), &mctx->fregs[AMD64_XMM12], sizeof(MonoContextSimdReg));
+	memcpy(&UCONTEXT_REG_FPR13(ctx), &mctx->fregs[AMD64_XMM13], sizeof(MonoContextSimdReg));
+	memcpy(&UCONTEXT_REG_FPR14(ctx), &mctx->fregs[AMD64_XMM14], sizeof(MonoContextSimdReg));
+	memcpy(&UCONTEXT_REG_FPR15(ctx), &mctx->fregs[AMD64_XMM15], sizeof(MonoContextSimdReg));
 #else
 	MonoContext *ctx = (MonoContext *)sigctx;
 
@@ -991,10 +1105,15 @@ mono_arch_monoctx_to_sigctx (MonoContext *mctx, void *sigctx)
 	ctx->rsi = mctx->rsi;
 	ctx->rdi = mctx->rdi;
 	ctx->rip = mctx->rip;
+	ctx->r8 = mctx->r8;
+	ctx->r9 = mctx->r9;
+	ctx->r10 = mctx->r10;
+	ctx->r11 = mctx->r11;
 	ctx->r12 = mctx->r12;
 	ctx->r13 = mctx->r13;
 	ctx->r14 = mctx->r14;
 	ctx->r15 = mctx->r15;
+	memcpy (&ctx->fregs[0], &mctx->fregs[0], sizeof (MonoContextSimdReg) * AMD64_XMM_NREG);
 #endif
 }
 
@@ -1480,6 +1599,8 @@ MONO_GET_RUNTIME_FUNCTION_CALLBACK ( DWORD64 ControlPc, IN PVOID Context )
 	
 	targetinfo = (PMonoUnwindInfo)ALIGN_TO (pos, 8);
 
+	targetinfo->runtimeFunction.BeginAddress = ((DWORD64)ji->code_start) - ((DWORD64)Context);
+	targetinfo->runtimeFunction.EndAddress = pos - ((DWORD64)Context);
 	targetinfo->runtimeFunction.UnwindData = ((DWORD64)&targetinfo->unwindInfo) - ((DWORD64)Context);
 
 	return &targetinfo->runtimeFunction;
@@ -1511,8 +1632,6 @@ mono_arch_unwindinfo_install_unwind_info (gpointer* monoui, gpointer code, guint
 
 	g_free (unwindinfo);
 	*monoui = 0;
-
-	RtlInstallFunctionTableCallback (((DWORD64)code) | 0x3, (DWORD64)code, code_size, MONO_GET_RUNTIME_FUNCTION_CALLBACK, code, NULL);
 }
 
 #endif

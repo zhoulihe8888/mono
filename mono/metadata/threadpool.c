@@ -58,6 +58,8 @@
 #define THREAD_WANTS_A_BREAK(t) ((t->state & (ThreadState_StopRequested | \
 						ThreadState_SuspendRequested)) != 0)
 
+#define THREAD_ABORT_REQUESTED(t) ((t->state & ThreadState_AbortRequested) != 0)
+
 #undef EPOLL_DEBUG
 
 /* maximum number of worker threads */
@@ -343,7 +345,7 @@ async_invoke_io_thread (gpointer data)
 
 		data = dequeue_job (&io_queue_lock, &async_io_queue);
 	
-		if (!data && !mono_runtime_is_shutting_down()) {
+		if (!data && !mono_runtime_is_shutting_down() && !THREAD_ABORT_REQUESTED(thread)) {
 			guint32 wr;
 			int timeout = THREAD_EXIT_TIMEOUT;
 			guint32 start_time = mono_msec_ticks ();
@@ -358,14 +360,14 @@ async_invoke_io_thread (gpointer data)
 				if (wr != WAIT_TIMEOUT && wr != WAIT_IO_COMPLETION)
 					data = dequeue_job (&io_queue_lock, &async_io_queue);
 			}
-			while (!data && timeout > 0 && !mono_runtime_is_shutting_down());
+			while (!data && timeout > 0 && !mono_runtime_is_shutting_down() && !THREAD_ABORT_REQUESTED(thread));
 		}
 
 		if (!data) {
 			workers_io = (int) InterlockedCompareExchange (&io_worker_threads, 0, -1); 
 			min_io = (int) InterlockedCompareExchange (&mono_io_min_worker_threads, 0, -1); 
 	
-			while (!data && workers_io <= min_io && !mono_runtime_is_shutting_down()) {
+			while (!data && workers_io <= min_io && !mono_runtime_is_shutting_down() && !THREAD_ABORT_REQUESTED(thread)) {
 				WaitForSingleObjectEx (io_job_added, INFINITE, TRUE);
 				if (THREAD_WANTS_A_BREAK (thread))
 					mono_thread_interruption_checkpoint ();
@@ -740,8 +742,8 @@ mono_thread_pool_remove_socket (int sock)
 }
 
 #ifdef PLATFORM_WIN32
-static void
-connect_hack (gpointer x)
+static DWORD WINAPI
+connect_hack (LPVOID x)
 {
 	struct sockaddr_in *addr = (struct sockaddr_in *) x;
 	int count = 0;
@@ -764,6 +766,7 @@ socket_io_init (SocketIOData *data)
 	struct sockaddr_in client;
 	SOCKET srv;
 	int len;
+	HANDLE connect_handle;
 #endif
 	int inited;
 
@@ -820,11 +823,13 @@ socket_io_init (SocketIOData *data)
 	len = sizeof (server);
 	getsockname (srv, (SOCKADDR *) &server, &len);
 	listen (srv, 1);
-	mono_thread_create (mono_get_root_domain (), connect_hack, &server);
+	connect_handle = mono_create_thread (NULL, 0, connect_hack, &server, 0, NULL);
 	len = sizeof (server);
 	data->pipe [0] = accept (srv, (SOCKADDR *) &client, &len);
 	g_assert (data->pipe [0] != INVALID_SOCKET);
 	closesocket (srv);
+	WaitForSingleObject (connect_handle, INFINITE);
+	CloseHandle (connect_handle);
 #endif
 	data->sock_to_state = mono_g_hash_table_new_type (g_direct_hash, g_direct_equal, MONO_HASH_VALUE_GC);
 
@@ -1306,7 +1311,6 @@ clear_queue (CRITICAL_SECTION *cs, TPQueue *list, MonoDomain *domain)
 			unregister_job ((MonoAsyncResult*)obj);
 
 			mono_array_set (list->array, MonoObject*, i, NULL);
-			InterlockedDecrement (&domain->threadpool_jobs);
 			++count;
 		}
 	}
@@ -1472,7 +1476,7 @@ async_invoke_thread (gpointer data)
 
 		data = dequeue_job (&mono_delegate_section, &async_call_queue);
 
-		if (!data && !mono_runtime_is_shutting_down()) {
+		if (!data && !mono_runtime_is_shutting_down() && !THREAD_ABORT_REQUESTED(thread)) {
 			guint32 wr;
 			int timeout = THREAD_EXIT_TIMEOUT;
 			guint32 start_time = mono_msec_ticks ();
@@ -1487,14 +1491,14 @@ async_invoke_thread (gpointer data)
 				if (wr != WAIT_TIMEOUT && wr != WAIT_IO_COMPLETION)
 					data = dequeue_job (&mono_delegate_section, &async_call_queue);
 			}
-			while (!mono_runtime_is_shutting_down() && !data && timeout > 0);
+			while (!mono_runtime_is_shutting_down() && !data && timeout > 0 && !THREAD_ABORT_REQUESTED(thread));
 		}
 
 		if (!data) {
 			workers = (int) InterlockedCompareExchange (&mono_worker_threads, 0, -1); 
 			min = (int) InterlockedCompareExchange (&mono_min_worker_threads, 0, -1); 
 	
-			while (!mono_runtime_is_shutting_down() && !data && workers <= min) {
+			while (!mono_runtime_is_shutting_down() && !data && workers <= min && !THREAD_ABORT_REQUESTED(thread)) {
 				WaitForSingleObjectEx (job_added, INFINITE, TRUE);
 				if (THREAD_WANTS_A_BREAK (thread))
 					mono_thread_interruption_checkpoint ();

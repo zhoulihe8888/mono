@@ -189,6 +189,11 @@ typedef struct MonoCompileArch {
 } MonoCompileArch;
 
 typedef struct {
+	double lo;
+	double hi;
+} MonoContextSimdReg;
+
+typedef struct {
 	guint64 rax;
 	guint64 rbx;
 	guint64 rcx;
@@ -198,10 +203,16 @@ typedef struct {
     guint64 rsi;
 	guint64 rdi;
 	guint64 rip;
+	guint64 r8;
+	guint64 r9;
+	guint64 r10;
+	guint64 r11;
 	guint64 r12;
 	guint64 r13;
 	guint64 r14;
 	guint64 r15;
+	MonoContextSimdReg fregs[AMD64_XMM_NREG];
+	gboolean has_fregs;
 } MonoContext;
 
 #define MONO_CONTEXT_SET_IP(ctx,ip) do { (ctx)->rip = (guint64)(ip); } while (0); 

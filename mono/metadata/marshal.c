@@ -1778,8 +1778,16 @@ emit_struct_conv_full (MonoMethodBuilder *mb, MonoClass *klass, gboolean to_obje
 		mono_mb_emit_byte (mb, CEE_PREFIX1);
 		mono_mb_emit_byte (mb, CEE_CPBLK);
 
-		mono_mb_emit_add_to_local (mb, 0, offset_of_first_child_field);
-		mono_mb_emit_add_to_local (mb, 1, usize);
+		if (to_object)
+		{
+			mono_mb_emit_add_to_local(mb, 0, usize);
+			mono_mb_emit_add_to_local(mb, 1, offset_of_first_child_field);
+		}
+		else
+		{
+			mono_mb_emit_add_to_local(mb, 0, offset_of_first_child_field);
+			mono_mb_emit_add_to_local(mb, 1, usize);
+		}
 		return;
 	}
 
@@ -4135,6 +4143,8 @@ mono_marshal_get_runtime_invoke (MonoMethod *method, gboolean virtual)
 
 	if (virtual)
 		need_direct_wrapper = TRUE;
+	if (method->dynamic)
+		need_direct_wrapper = TRUE;
 
 	/* 
 	 * Use a separate cache indexed by methods to speed things up and to avoid the
@@ -4407,9 +4417,13 @@ handle_enum:
 	case MONO_TYPE_U8:
 	case MONO_TYPE_VALUETYPE:
 	case MONO_TYPE_TYPEDBYREF:
-	case MONO_TYPE_GENERICINST:
 		/* box value types */
 		mono_mb_emit_op (mb, CEE_BOX, mono_class_from_mono_type (sig->ret));
+		break;
+	case MONO_TYPE_GENERICINST:
+		/* only box value type generic insts */
+		if (mono_type_generic_inst_is_valuetype (sig->ret))
+			mono_mb_emit_op (mb, CEE_BOX, mono_class_from_mono_type (sig->ret));
 		break;
 	case MONO_TYPE_STRING:
 	case MONO_TYPE_CLASS:  

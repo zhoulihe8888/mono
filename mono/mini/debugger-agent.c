@@ -193,6 +193,8 @@ typedef struct {
 	MonoContext handler_ctx;
 	/* Whenever thread_stop () was called for this thread */
 	gboolean terminated;
+	/* If thread should be suspended and processed. FALSE is fast detach has been called */
+	gboolean attached;
 
 	/* Number of thread interruptions not yet processed */
 	gint32 interrupt_count;
@@ -602,6 +604,10 @@ static void thread_startup (MonoProfiler *prof, gsize tid);
 
 static void thread_end (MonoProfiler *prof, gsize tid);
 
+static void thread_fast_attach (MonoProfiler *prof, gsize tid);
+
+static void thread_fast_detach (MonoProfiler *prof, gsize tid);
+
 static void appdomain_load (MonoProfiler *prof, MonoDomain *domain, int result);
 
 static void appdomain_unload (MonoProfiler *prof, MonoDomain *domain);
@@ -819,6 +825,7 @@ mono_debugger_agent_init (void)
 	mono_profiler_install_runtime_initialized (runtime_initialized);
 	mono_profiler_install_appdomain (NULL, appdomain_load, NULL, appdomain_unload);
 	mono_profiler_install_thread (thread_startup, thread_end);
+	mono_profiler_install_thread_fast_attach_detach (thread_fast_attach, thread_fast_detach);
 	mono_profiler_install_assembly (NULL, assembly_load, assembly_unload, NULL);
 	mono_profiler_install_jit_end (jit_end);
 	mono_profiler_install_method_invoke (start_runtime_invoke, end_runtime_invoke);
@@ -2414,7 +2421,7 @@ count_thread (gpointer key, gpointer value, gpointer user_data)
 {
 	DebuggerTlsData *tls = value;
 
-	if (!tls->suspended && !tls->terminated)
+	if (!tls->suspended && !tls->terminated && tls->attached)
 		*(int*)user_data = *(int*)user_data + 1;
 }
 
@@ -3175,6 +3182,7 @@ thread_startup (MonoProfiler *prof, gsize tid)
 	tls->resume_event = CreateEvent (NULL, FALSE, FALSE, NULL);
 	MONO_GC_REGISTER_ROOT (tls->thread);
 	tls->thread = thread;
+	tls->attached = TRUE;
 	tls->invoke_addr_stack = NULL;
 	TlsSetValue (debugger_tls_id, tls);
 
@@ -3226,6 +3234,40 @@ thread_end (MonoProfiler *prof, gsize tid)
 		DEBUG (1, fprintf (log_file, "[%p] Thread terminated, obj=%p, tls=%p.\n", (gpointer)tid, thread, tls));
 		process_profiler_event (EVENT_KIND_THREAD_DEATH, thread);
 	}
+}
+
+static
+void thread_fast_attach (MonoProfiler *prof, gsize tid)
+{
+	MonoInternalThread *thread;
+	DebuggerTlsData *tls = NULL;
+
+	mono_loader_lock ();
+	thread = mono_g_hash_table_lookup (tid_to_thread, (gpointer)tid);
+	if (thread) {
+		tls = mono_g_hash_table_lookup (thread_to_tls, thread);
+		if (tls) {
+			tls->attached = TRUE;
+		}
+	}
+	mono_loader_unlock ();
+}
+
+static
+void thread_fast_detach (MonoProfiler *prof, gsize tid)
+{
+	MonoInternalThread *thread;
+	DebuggerTlsData *tls = NULL;
+
+	mono_loader_lock ();
+	thread = mono_g_hash_table_lookup (tid_to_thread, (gpointer)tid);
+	if (thread) {
+		tls = mono_g_hash_table_lookup (thread_to_tls, thread);
+		if (tls) {
+			tls->attached = FALSE;
+		}
+	}
+	mono_loader_unlock ();
 }
 
 static void
@@ -3472,7 +3514,8 @@ insert_breakpoint (MonoSeqPointInfo *seq_points, MonoDomain *domain, MonoJitInfo
 
 	if (i == seq_points->len) {
 		/* Have to handle this somehow */
-		g_error ("Unable to insert breakpoint at %s:%d, seq_points=%d\n", mono_method_full_name (ji->method, TRUE), bp->il_offset, seq_points->len);
+		g_warning ("Unable to insert breakpoint at %s:%d, seq_points=%d\n", mono_method_full_name (ji->method, TRUE), bp->il_offset, seq_points->len);
+		return;
 	}
 
 	inst = g_new0 (BreakpointInstance, 1);
@@ -3893,7 +3936,7 @@ process_breakpoint_inner (DebuggerTlsData *tls, MonoContext *ctx)
 	/* Process single step requests */
 	for (i = 0; i < ss_reqs_orig->len; ++i) {
 		EventRequest *req = g_ptr_array_index (ss_reqs_orig, i);
-		SingleStepReq *ss_req = bp->req->info;
+		SingleStepReq *ss_req = req->info;
 		gboolean hit = TRUE;
 
 		sp = find_seq_point_for_native_offset (mono_domain_get (), ji->method, native_offset, &info);
@@ -5147,6 +5190,10 @@ do_invoke_method (DebuggerTlsData *tls, Buffer *buf, InvokeData *invoke)
 
 	if (m->is_generic && !m->is_inflated)
 		return ERR_NOT_IMPLEMENTED;
+	
+	/* Do not invoke method with a generic type parameter as return value. */
+	if(sig && sig->ret && sig->ret->type == MONO_TYPE_VAR)
+		return ERR_NOT_IMPLEMENTED;
 
 	if (m->klass->valuetype)
 		this_buf = g_alloca (mono_class_instance_size (m->klass));
@@ -5720,7 +5767,7 @@ event_commands (int command, guint8 *p, guint8 *end, Buffer *buf)
 				int n = decode_int (p, &p, end);
 				int j;
 
-				req->modifiers [i].data.assemblies = g_new0 (MonoAssembly*, n);
+				req->modifiers [i].data.assemblies = g_new0 (MonoAssembly*, n + 1);
 				for (j = 0; j < n; ++j) {
 					req->modifiers [i].data.assemblies [j] = decode_assemblyid (p, &p, end, &domain, &err);
 					if (err) {

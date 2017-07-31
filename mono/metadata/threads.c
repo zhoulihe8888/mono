@@ -222,6 +222,27 @@ static CRITICAL_SECTION delayed_free_table_mutex;
 static GArray *delayed_free_table = NULL;
 
 static gboolean shutting_down = FALSE;
+static gboolean thread_exited_initialized = FALSE;
+
+static void
+mono_thread_exiting_internal (MonoThread *thread)
+{
+	if (thread_exited_initialized && thread && !mono_threads_is_shutting_down ()) {
+		mono_thread_detach (thread);
+	}
+}
+
+
+#if !(defined(PLATFORM_WIN32) || defined(PLATFORM_WIN64))
+static pthread_key_t thread_exited_key;
+
+static void
+thread_exited_callback (void *k)
+{
+	mono_thread_exiting_internal ((MonoThread *)k);
+}
+
+#endif
 
 guint32
 mono_thread_get_tls_key (void)
@@ -991,6 +1012,13 @@ mono_thread_attach (MonoDomain *domain)
 	// FIXME: Need a separate callback
 	mono_profiler_thread_start (tid);
 
+#if !(defined(PLATFORM_WIN32) || defined(PLATFORM_WIN64))
+	{
+		int res = pthread_setspecific (thread_exited_key, thread);
+		g_assert (res == 0);
+	}
+#endif
+
 	return(thread);
 }
 
@@ -1009,10 +1037,56 @@ mono_thread_detach (MonoThread *thread)
 
 	SET_CURRENT_OBJECT (NULL);
 
+#if !(defined(PLATFORM_WIN32) || defined(PLATFORM_WIN64))
+	{
+		int res = pthread_setspecific (thread_exited_key, NULL);
+		g_assert (res == 0);
+	}
+#endif
+
 	/* Don't need to CloseHandle this thread, even though we took a
 	 * reference in mono_thread_attach (), because the GC will do it
 	 * when the Thread object is finalised.
 	 */
+}
+
+void
+mono_unity_thread_fast_attach (MonoDomain *domain)
+{
+	MonoThread *thread;
+
+	g_assert (domain);
+	g_assert (domain != mono_get_root_domain ());
+
+	thread = mono_thread_current ();
+	g_assert (thread);
+
+	mono_thread_push_appdomain_ref (domain);
+	g_assert (mono_domain_set (domain, FALSE));
+
+	mono_profiler_thread_fast_attach (thread->tid);
+}
+
+void
+mono_unity_thread_fast_detach ()
+{
+	MonoThread *thread;
+	MonoDomain *current_domain;
+
+	thread = mono_thread_current ();
+	g_assert (thread);
+
+	current_domain = mono_domain_get ();
+
+	g_assert (current_domain);
+	g_assert (current_domain != mono_get_root_domain ());
+
+	mono_profiler_thread_fast_detach (thread->tid);
+
+	// Migrating to the root domain and popping the domain reference allows
+	// the thread to stay alive and keep running while the domain can be unloaded
+	g_assert (mono_domain_set (mono_get_root_domain (), FALSE));
+	mono_thread_pop_appdomain_ref ();
 }
 
 void
@@ -1031,6 +1105,13 @@ mono_thread_exit ()
 	ExitThread (-1);
 }
 
+void mono_thread_exiting ()
+{
+	if (thread_exited_initialized) {
+		mono_thread_exiting_internal (mono_thread_current ());
+	}
+}
+
 HANDLE ves_icall_System_Threading_Thread_Thread_internal(MonoThread *this,
 							 MonoObject *start)
 {
@@ -1042,6 +1123,12 @@ HANDLE ves_icall_System_Threading_Thread_Thread_internal(MonoThread *this,
 	MONO_ARCH_SAVE_REGS;
 
 	THREAD_DEBUG (g_message("%s: Trying to start a new thread: this (%p) start (%p)", __func__, this, start));
+
+	if (mono_domain_is_unloading (this->obj.vtable->domain))
+	{
+		mono_raise_exception (mono_get_exception_invalid_operation ("Cannot start thread while application domain is being unloaded."));
+		return NULL;
+	}
 
 	ensure_synch_cs_set (this);
 
@@ -1507,21 +1594,17 @@ gboolean ves_icall_System_Threading_Thread_Join_internal(MonoThread *this,
 	return(FALSE);
 }
 
-guint32 wait_and_ignore_interrupt (MonoThread* thread, gint32 ms, HANDLE* handles, gint32 handle_count, gboolean wait_all)
+guint32 mono_unity_wait_for_multiple_objects_processing_apc (gint32 handle_count, HANDLE* handles, gboolean wait_all, gint32 ms)
 {
 	guint32 ret = WAIT_IO_COMPLETION;
 	guint32 start_ms;
-	MonoException* exc = NULL;
 	guint32 time_left_to_wait_ms = ms;
-
-	mono_thread_set_state (thread, ThreadState_WaitSleepJoin);
 
 	start_ms = mono_msec_ticks ();
 
-	while (!exc && ret == WAIT_IO_COMPLETION)
+	while (ret == WAIT_IO_COMPLETION && !mono_thread_interruption_requested ())
 	{
 		ret = WaitForMultipleObjectsEx (handle_count, handles, wait_all ? TRUE : FALSE, time_left_to_wait_ms, TRUE);
-		exc = mono_thread_get_and_clear_pending_exception ();
 
 		if (ret == WAIT_IO_COMPLETION)
 		{
@@ -1537,11 +1620,6 @@ guint32 wait_and_ignore_interrupt (MonoThread* thread, gint32 ms, HANDLE* handle
 				ret = WAIT_TIMEOUT;
 		}
 	}
-
-	mono_thread_clr_state (thread, ThreadState_WaitSleepJoin);
-
-	if (exc)
-		mono_raise_exception (exc);
 
 	return ret;
 }
@@ -1573,7 +1651,11 @@ gboolean ves_icall_System_Threading_WaitHandle_WaitAll_internal(MonoArray *mono_
 		ms=INFINITE;
 	}
 
-	ret = wait_and_ignore_interrupt (thread, ms, handles, numhandles, TRUE);
+	mono_thread_set_state (thread, ThreadState_WaitSleepJoin);
+
+	ret = mono_unity_wait_for_multiple_objects_processing_apc (numhandles, handles, TRUE, ms);
+
+	mono_thread_clr_state (thread, ThreadState_WaitSleepJoin);
 
 	g_free(handles);
 
@@ -1619,8 +1701,12 @@ gint32 ves_icall_System_Threading_WaitHandle_WaitAny_internal(MonoArray *mono_ha
 	if(ms== -1) {
 		ms=INFINITE;
 	}
-	
-	ret = wait_and_ignore_interrupt (thread, ms, handles, numhandles, FALSE);
+
+	mono_thread_set_state (thread, ThreadState_WaitSleepJoin);
+
+	ret = mono_unity_wait_for_multiple_objects_processing_apc (numhandles, handles, FALSE, ms);
+
+	mono_thread_clr_state (thread, ThreadState_WaitSleepJoin);
 	
 	g_free(handles);
 
@@ -1656,7 +1742,11 @@ gboolean ves_icall_System_Threading_WaitHandle_WaitOne_internal(MonoObject *this
 	
 	mono_thread_current_check_pending_interrupt ();
 
-	ret = wait_and_ignore_interrupt (thread, ms, &handle, 1, TRUE);
+	mono_thread_set_state (thread, ThreadState_WaitSleepJoin);
+
+	ret = mono_unity_wait_for_multiple_objects_processing_apc (1, &handle, TRUE, ms);
+
+	mono_thread_clr_state (thread, ThreadState_WaitSleepJoin);
 	
 	if(ret==WAIT_FAILED) {
 		THREAD_WAIT_DEBUG (g_message ("%s: (%"G_GSIZE_FORMAT") Wait failed", __func__, GetCurrentThreadId ()));
@@ -2757,6 +2847,12 @@ void mono_thread_init (MonoThreadStartCB start_cb,
 	 * anything up.
 	 */
 	GetCurrentProcess ();
+
+#if !(defined(PLATFORM_WIN32) || defined(PLATFORM_WIN64))
+	int res = pthread_key_create (&thread_exited_key, thread_exited_callback);
+	g_assert (res == 0);
+#endif
+	thread_exited_initialized = TRUE;
 }
 
 void mono_thread_cleanup (void)
@@ -2798,6 +2894,13 @@ void mono_thread_cleanup (void)
 	}
 
 	TlsFree (current_object_key);
+	thread_exited_initialized = FALSE;
+#if !(defined(PLATFORM_WIN32) || defined(PLATFORM_WIN64))
+	{
+		int res = pthread_key_delete (thread_exited_key);
+		g_assert (res == 0);
+	}
+#endif
 }
 
 void
@@ -2853,7 +2956,7 @@ static void wait_for_tids (struct wait_data *wait, guint32 timeout)
 	for(i=0; i<wait->num; i++)
 		CloseHandle (wait->handles[i]);
 
-	if (ret == WAIT_TIMEOUT)
+	if (ret == WAIT_TIMEOUT || ret == WAIT_IO_COMPLETION)
 		return;
 
 	for(i=0; i<wait->num; i++) {
@@ -3542,6 +3645,9 @@ clear_cached_culture (gpointer key, gpointer value, gpointer user_data)
 				mono_array_set (thread->cached_culture_info, MonoObject*, i, NULL);
 		}
 	}
+
+	if (thread->principal && thread->principal->vtable->domain == domain)
+		thread->principal = NULL;
 
 	LeaveCriticalSection (thread->synch_cs);
 }

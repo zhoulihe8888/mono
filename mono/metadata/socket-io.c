@@ -81,11 +81,6 @@
 static char* inet_ntop(int af, const void* src, char* dst, size_t size);
 #endif
 
-#ifdef PLATFORM_ANDROID
-// not yet actually implemented...
-#undef AF_INET6
-#endif
-
 #define LOGDEBUG(...)  
 /* define LOGDEBUG(...) g_message(__VA_ARGS__)  */
 
@@ -860,11 +855,11 @@ gpointer ves_icall_System_Net_Sockets_Socket_Accept_internal(SOCKET sock,
 
 	*error = 0;
 #ifdef PLATFORM_WIN32
+	if (blocking)
 	{
 		/* perform alertable wait on event rather than blocking socket call to avoid deadlock on domain unload */
 		WSAEVENT  hEvent;
 		DWORD result = 0;
-		u_long nonblocking = !blocking;
 
 		hEvent = WSACreateEvent ();
 		if (hEvent == WSA_INVALID_EVENT) {
@@ -896,8 +891,8 @@ gpointer ves_icall_System_Net_Sockets_Socket_Accept_internal(SOCKET sock,
 
 		/* from MSDN: WSAEventSelect function automatically sets socket s to nonblocking mode 
 		 * call ioctlsocket or WSAIoctl to set the socket back to blocking mode.*/
-
-		if (!nonblocking) {
+		{
+			u_long nonblocking = 0;
 			int socket_result = 0;
 			socket_result = ioctlsocket (sock, FIONBIO, &nonblocking);
 			if(socket_result == SOCKET_ERROR) {
@@ -2389,7 +2384,7 @@ get_local_ips (int family, int *nips)
 
 #endif /* HAVE_SIOCGIFCONF */
 
-#ifndef AF_INET6
+#if defined(AF_INET6) && !defined(HAVE_GETHOSTBYNAME2_R)
 static gboolean hostent_to_IPHostEntry(struct hostent *he, MonoString **h_name,
 				       MonoArray **h_aliases,
 				       MonoArray **h_addr_list,
@@ -2819,11 +2814,13 @@ addrinfo_to_IPHostEntry(struct addrinfo *info, MonoString **h_name,
 MonoBoolean ves_icall_System_Net_Dns_GetHostByName_internal(MonoString *host, MonoString **h_name, MonoArray **h_aliases, MonoArray **h_addr_list)
 {
 	gboolean add_local_ips = FALSE;
+	gboolean result = FALSE;
 #ifdef HAVE_SIOCGIFCONF
 	gchar this_hostname [256];
 #endif
 #if !defined(HAVE_GETHOSTBYNAME2_R)
 	struct addrinfo *info = NULL, hints;
+	struct hostent *he;
 	char *hostname;
 	
 	MONO_ARCH_SAVE_REGS;
@@ -2846,10 +2843,29 @@ MonoBoolean ves_icall_System_Net_Dns_GetHostByName_internal(MonoString *host, Mo
 	if (*hostname && getaddrinfo(hostname, NULL, &hints, &info) == -1) {
 		return(FALSE);
 	}
-	
-	g_free(hostname);
 
-	return(addrinfo_to_IPHostEntry(info, h_name, h_aliases, h_addr_list, add_local_ips));
+	if (info != NULL)
+	{
+		// Prefer parsing the return value from getaddrinfo, as it supports IPv6 correctly.
+		result = addrinfo_to_IPHostEntry(info, h_name, h_aliases, h_addr_list, add_local_ips);
+	}
+	else
+	{
+		// If getaddrinfo doesn't give us back anything (maybe the network is down), fall back to
+		// using a hostent, which should work for IPv4 but does not support IPv6.
+#ifndef HOST_WIN32
+		he = NULL;
+		if (*hostname)
+			he = _wapi_gethostbyname(hostname);
+#else
+		he = _wapi_gethostbyname(hostname);
+#endif
+
+		result = hostent_to_IPHostEntry(he, h_name, h_aliases, h_addr_list, add_local_ips);
+	}
+
+	g_free(hostname);
+	return result;
 #else
 	struct hostent he1,*hp1, he2, *hp2;
 	int buffer_size1, buffer_size2;

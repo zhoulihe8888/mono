@@ -22,7 +22,6 @@ mono_loader_get_last_error
 mono_loader_error_prepare_exception
 
 ;Unity Exports that add new functions created by Unity
-unity_mono_install_memory_callbacks
 unity_mono_redirect_output
 unity_mono_close_output
 unity_mono_method_is_inflated
@@ -41,6 +40,7 @@ mono_unity_liveness_calculation_from_root_managed
 mono_unity_set_embeddinghostname
 mono_unity_set_vprintf_func
 mono_set_assemblies_path
+mono_set_assemblies_path_null_separated
 mono_set_find_plugin_callback
 mono_set_commandline_arguments
 mono_set_signal_chaining
@@ -53,8 +53,10 @@ mono_unity_set_unhandled_exception_handler
 mono_unity_class_is_interface
 mono_unity_class_is_abstract
 mono_backtrace_from_context
-mono_unity_thread_clear_domain_fields
 mono_unity_get_all_classes_with_name_case
+unity_mono_reflection_method_get_method
+mono_unity_capture_memory_snapshot
+mono_unity_free_captured_memory_snapshot
 
 ;Exports that should have been here, but I dont understand why they're not.
 mono_security_enable_core_clr
@@ -199,6 +201,7 @@ mono_class_is_assignable_from
 mono_class_is_enum
 mono_class_is_subclass_of
 mono_class_is_valuetype
+mono_class_is_blittable
 mono_class_min_align
 mono_class_name_from_token
 mono_class_num_events
@@ -241,6 +244,8 @@ mono_custom_attrs_has_attr
 mono_debug_add_method
 mono_debug_cleanup
 mono_debug_close_mono_symbol_file
+mono_debug_domain_create
+mono_debug_domain_unload
 mono_debug_find_method
 mono_debug_free_source_location
 mono_debug_init
@@ -814,3 +819,23 @@ mono_runtime_unhandled_exception_policy_set
 set_vprintf_func
 mono_type_is_reference
 mono_array_addr_with_size
+
+mono_unity_runtime_set_main_args
+mono_unity_string_empty_wrapper
+mono_unity_array_new_2d
+mono_unity_array_new_3d
+mono_unity_domain_set_config
+mono_unity_backtrace_from_context
+mono_unity_loader_get_last_error_and_error_prepare_exception
+mono_unity_jit_cleanup
+mono_unity_g_free
+mono_unity_install_memory_callbacks
+mono_unity_register_path_remapper
+mono_unity_class_get_generic_type_definition
+mono_unity_class_get_generic_parameter_at
+mono_unity_class_get_generic_parameter_count
+mono_unity_set_data_dir
+mono_unity_get_data_dir
+mono_unity_class_get
+mono_unity_thread_fast_attach
+mono_unity_thread_fast_detach

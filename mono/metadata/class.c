@@ -6397,7 +6397,14 @@ mono_image_init_name_cache (MonoImage *image)
 		int i;
 
 		for (i = 0; i < t->rows; ++i) {
+			guint32 impl;
 			mono_metadata_decode_row (t, i, cols, MONO_EXP_TYPE_SIZE);
+
+			impl = cols[MONO_EXP_TYPE_IMPLEMENTATION];
+			if ((impl & MONO_IMPLEMENTATION_MASK) == MONO_IMPLEMENTATION_EXP_TYPE)
+				/* Nested type */
+				continue;
+
 			name = mono_metadata_string_heap (image, cols [MONO_EXP_TYPE_NAME]);
 			nspace = mono_metadata_string_heap (image, cols [MONO_EXP_TYPE_NAMESPACE]);
 
@@ -6615,10 +6622,13 @@ mono_class_from_name (MonoImage *image, const char* name_space, const char *name
 		if (res) {
 			if (!class)
 				class = search_modules (image, name_space, name);
-			if (nested)
-				return class ? return_nested_in (class, nested) : NULL;
-			else
-				return class;
+			if (class)
+			{
+				if (nested)
+					return class ? return_nested_in (class, nested) : NULL;
+				else
+					return class;
+			}
 		}
 	}
 
@@ -6681,11 +6691,15 @@ mono_class_from_name (MonoImage *image, const char* name_space, const char *name
 			g_assert (image->references [assembly_idx - 1]);
 			if (image->references [assembly_idx - 1] == (gpointer)-1)
 				return NULL;			
-			else
+			else {
 				/* FIXME: Cycle detection */
-				return mono_class_from_name (image->references [assembly_idx - 1]->image, name_space, name);
+				class = mono_class_from_name (image->references [assembly_idx - 1]->image, name_space, name);
+				if (nested)
+					return return_nested_in (class, nested);
+				return class;
+			}
 		} else {
-			g_error ("not yet implemented");
+			g_assert_not_reached ();
 		}
 	}
 
@@ -7248,6 +7262,18 @@ gboolean
 mono_class_is_valuetype (MonoClass *klass)
 {
 	return klass->valuetype;
+}
+
+/**
+ * mono_class_is_blittable:
+ * @klass: the MonoClass to act on
+ *
+ * Returns: true if the MonoClass represents a blittable type.
+ */
+gboolean
+mono_class_is_blittable (MonoClass *klass)
+{
+	return klass->blittable;
 }
 
 /**
@@ -8110,13 +8136,19 @@ find_method_in_metadata (MonoClass *klass, const char *name, int param_count, in
 	for (i = 0; i < klass->method.count; ++i) {
 		guint32 cols [MONO_METHOD_SIZE];
 		MonoMethod *method;
+		MonoMethodSignature *sig;
 
 		/* class->method.first points into the methodptr table */
 		mono_metadata_decode_table_row (klass->image, MONO_TABLE_METHOD, klass->method.first + i, cols, MONO_METHOD_SIZE);
 
 		if (!strcmp (mono_metadata_string_heap (klass->image, cols [MONO_METHOD_NAME]), name)) {
 			method = mono_get_method (klass->image, MONO_TOKEN_METHOD_DEF | (klass->method.first + i + 1), klass);
-			if ((param_count == -1) || mono_method_signature (method)->param_count == param_count) {
+			if (param_count == -1) {
+				res = method;
+				break;
+			}
+			sig = mono_method_signature (method);
+			if (sig && sig->param_count == param_count) {
 				res = method;
 				break;
 			}

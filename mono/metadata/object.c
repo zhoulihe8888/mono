@@ -2909,6 +2909,7 @@ mono_field_get_value_object (MonoDomain *domain, MonoClassField *field, MonoObje
 	gchar *v;
 	gboolean is_static = FALSE;
 	gboolean is_ref = FALSE;
+	gboolean is_literal = FALSE;
 
 	switch (field->type->type) {
 	case MONO_TYPE_STRING:
@@ -2936,7 +2937,7 @@ mono_field_get_value_object (MonoDomain *domain, MonoClassField *field, MonoObje
 		is_ref = field->type->byref;
 		break;
 	case MONO_TYPE_GENERICINST:
-		is_ref = !field->type->data.generic_class->container_class->valuetype;
+		is_ref = !mono_type_generic_inst_is_valuetype (field->type);
 		break;
 	default:
 		g_error ("type 0x%x not handled in "
@@ -2944,23 +2945,30 @@ mono_field_get_value_object (MonoDomain *domain, MonoClassField *field, MonoObje
 		return NULL;
 	}
 
+	if (field->type->attrs & FIELD_ATTRIBUTE_LITERAL)
+		is_literal = TRUE;
+
 	if (field->type->attrs & FIELD_ATTRIBUTE_STATIC) {
 		is_static = TRUE;
-		vtable = mono_class_vtable (domain, field->parent);
-		if (!vtable) {
-			char *name = mono_type_get_full_name (field->parent);
-			g_warning ("Could not retrieve the vtable for type %s in mono_field_get_value_object", name);
-			g_free (name);
-			return NULL;
+
+		if (!is_literal) {
+			vtable = mono_class_vtable (domain, field->parent);
+			if (!vtable) {
+				char *name = mono_type_get_full_name (field->parent);
+				/*FIXME extend this to use the MonoError api*/
+				g_warning ("Could not retrieve the vtable for type %s in mono_field_get_value_object", name);
+				g_free (name);
+				return NULL;
+			}
+			if (!vtable->initialized)
+				mono_runtime_class_init (vtable);
 		}
-		if (!vtable->initialized)
-			mono_runtime_class_init (vtable);
-	} else {
-		g_assert (obj);
 	}
 	
 	if (is_ref) {
-		if (is_static) {
+		if (is_literal) {
+			get_default_field_value (domain, field, &o);
+		} else if (is_static) {
 			mono_field_static_get_value (vtable, field, &o);
 		} else {
 			mono_field_get_value (obj, field, &o);
@@ -2976,7 +2984,10 @@ mono_field_get_value_object (MonoDomain *domain, MonoClassField *field, MonoObje
 
 	o = mono_object_new (domain, klass);
 	v = ((gchar *) o) + sizeof (MonoObject);
-	if (is_static) {
+
+	if (is_literal) {
+		get_default_field_value (domain, field, v);
+	} else if (is_static) {
 		mono_field_static_get_value (vtable, field, v);
 	} else {
 		mono_field_get_value (obj, field, v);
@@ -4430,6 +4441,25 @@ mono_array_new_specific (MonoVTable *vtable, mono_array_size_t n)
 	return ao;
 }
 
+void
+mono_string_initialize_empty(MonoDomain *domain, MonoClass *stringClass)
+{
+	MonoVTable *vtable;
+	g_assert(stringClass);
+	vtable = mono_class_vtable (domain, stringClass);
+	g_assert (vtable);
+	g_assert (domain->empty_string == NULL);
+	domain->empty_string = mono_object_allocate_ptrfree (sizeof (MonoString) + 2, vtable);
+	domain->empty_string->length = 0;
+
+#if NEED_TO_ZERO_PTRFREE
+	domain->empty_string->chars [0] = 0;
+#endif
+
+	if (G_UNLIKELY (profile_allocs))
+		mono_profiler_allocation ((MonoObject*)domain->empty_string, stringClass);
+}
+
 /**
  * mono_string_new_utf16:
  * @text: a pointer to an utf16 string
@@ -4441,7 +4471,6 @@ MonoString *
 mono_string_new_utf16 (MonoDomain *domain, const guint16 *text, gint32 len)
 {
 	MonoString *s;
-	
 	s = mono_string_new_size (domain, len);
 	g_assert (s != NULL);
 
@@ -4460,27 +4489,31 @@ mono_string_new_utf16 (MonoDomain *domain, const guint16 *text, gint32 len)
 MonoString *
 mono_string_new_size (MonoDomain *domain, gint32 len)
 {
-	MonoString *s;
-	MonoVTable *vtable;
-	size_t size = (sizeof (MonoString) + ((len + 1) * 2));
+	if (len == 0 && domain->empty_string) {
+		return domain->empty_string;
+	} else {
+		MonoString *s;
+		MonoVTable *vtable;
+		size_t size = (sizeof (MonoString) + ((len + 1) * 2));
 
-	/* overflow ? can't fit it, can't allocate it! */
-	if (len > size)
-		mono_gc_out_of_memory (-1);
+		/* overflow ? can't fit it, can't allocate it! */
+		if (len > size)
+			mono_gc_out_of_memory (-1);
 
-	vtable = mono_class_vtable (domain, mono_defaults.string_class);
-	g_assert (vtable);
+		vtable = mono_class_vtable (domain, mono_defaults.string_class);
+		g_assert (vtable);
 
-	s = mono_object_allocate_ptrfree (size, vtable);
+		s = mono_object_allocate_ptrfree (size, vtable);
 
-	s->length = len;
+		s->length = len;
 #if NEED_TO_ZERO_PTRFREE
-	s->chars [len] = 0;
+		s->chars [len] = 0;
 #endif
-	if (G_UNLIKELY (profile_allocs))
-		mono_profiler_allocation ((MonoObject*)s, mono_defaults.string_class);
+		if (G_UNLIKELY (profile_allocs))
+			mono_profiler_allocation ((MonoObject*)s, mono_defaults.string_class);
 
-	return s;
+		return s;
+	}
 }
 
 /**
