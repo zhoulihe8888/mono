@@ -94,8 +94,8 @@ else
 libmonoldflags=$(monoldflags) -version-info 1:0:0
 endif
 endif
-libmonoldflags += -Wl,-L$(monodir)/external/mbedtls/library -Wl,-lmbedtls -Wl,-lmbedx509 -Wl,-lmbedcrypto
-monobinldflags += -Wl,-L$(monodir)/external/mbedtls/library -Wl,-lmbedtls -Wl,-lmbedx509 -Wl,-lmbedcrypto
+libmonoldflags += -Wl,-L$(monodir)/external/mbedtls/library -Wl,-lmbedunity -Wl,-lmbedtls -Wl,-lmbedx509 -Wl,-lmbedcrypto
+monobinldflags += -Wl,-L$(monodir)/external/mbedtls/library -Wl,-lmbedunity -Wl,-lmbedtls -Wl,-lmbedx509 -Wl,-lmbedcrypto
 
 if SUPPORT_SGEN
 sgen_binaries = mono-sgen

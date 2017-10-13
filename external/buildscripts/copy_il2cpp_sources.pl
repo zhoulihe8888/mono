@@ -5,6 +5,8 @@
 
 use File::Basename;
 use File::Copy;
+use lib ('external/buildscripts/perl_lib');
+use File::Copy::Recursive qw(dircopy rmove);
 use File::Path;
 use Getopt::Long;
 
@@ -57,4 +59,10 @@ foreach my $sourcesLine(@listOfSourceFilesLines)
     {
         copy($fileToCopy, $destFile) or die "failed to copy $fileToCopy to $destFile\n";
     }
+}
+
+my @directories = ("external/mbedtls/library", "external/mbedtls/include");
+foreach my $directory(@directories)
+{
+    dircopy("$monoroot/$directory", "$sourcesroot/$directory") or die "failed to copy $monoroot/$directory to $sourcesroot/$directory\n";
 }

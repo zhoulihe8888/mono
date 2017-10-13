@@ -711,7 +711,8 @@ AC_CONFIG_SUBDIRS(eglib)
 
 GLIB_CFLAGS='-I$(top_srcdir)/eglib/src -I$(top_builddir)/eglib/src'
 GLIB_LIBS='-L$(top_builddir)/eglib/src -leglib -lm'
-MBEDTLS_LIBS='$(top_srcdir)/external/mbedtls/library/libmbedtls.a \
+MBEDTLS_LIBS='$(top_srcdir)/external/mbedtls/library/libmbedunity.a \
+	$(top_srcdir)/external/mbedtls/library/libmbedtls.a \
 	$(top_srcdir)/external/mbedtls/library/libmbedx509.a \
 	$(top_srcdir)/external/mbedtls/library/libmbedcrypto.a'
 MBEDTLS_CFLAGS='-I$(top_srcdir)/external/mbedtls/include'

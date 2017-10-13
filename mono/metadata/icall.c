@@ -100,7 +100,7 @@
 #include <mono/utils/mono-threads.h>
 #include <mono/metadata/w32error.h>
 #include <mono/utils/w32api.h>
-#include <metadata/mono-mbedtls.h>
+#include <mbedtls/unity_mbedtls_api.h>
 #include <os/c-api/SystemCertificates-c-api.h>
 
 #include "decimal-ms.h"

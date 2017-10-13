@@ -187,7 +187,6 @@ common_sources = \
 	marshal.c		\
 	marshal.h		\
 	marshal-internals.h \
-	mono-mbedtls.c		\
 	mempool.c		\
 	mempool.h		\
 	mempool-internals.h	\
