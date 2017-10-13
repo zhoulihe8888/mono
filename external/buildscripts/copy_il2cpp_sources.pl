@@ -60,9 +60,3 @@ foreach my $sourcesLine(@listOfSourceFilesLines)
         copy($fileToCopy, $destFile) or die "failed to copy $fileToCopy to $destFile\n";
     }
 }
-
-my @directories = ("external/mbedtls/library", "external/mbedtls/include");
-foreach my $directory(@directories)
-{
-    dircopy("$monoroot/$directory", "$sourcesroot/$directory") or die "failed to copy $monoroot/$directory to $sourcesroot/$directory\n";
-}
