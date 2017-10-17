@@ -180,139 +180,139 @@ namespace Mono.Mbedtls
 
 		internal struct mbedtls_ctr_drbg_context {}
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static mbedtls_entropy_context* unity_mbedtls_entropy_init ();
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static void unity_mbedtls_entropy_free (mbedtls_entropy_context* ctx);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static mbedtls_ssl_context* unity_mbedtls_ssl_init ();
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static void unity_mbedtls_ssl_free (mbedtls_ssl_context* ctx);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static mbedtls_ssl_config* unity_mbedtls_ssl_config_init ();
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static void unity_mbedtls_ssl_config_free (mbedtls_ssl_config* ctx);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static mbedtls_ctr_drbg_context* unity_mbedtls_ctr_drbg_init ();
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static void unity_mbedtls_ctr_drbg_free (mbedtls_ctr_drbg_context* ctx);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static int unity_mbedtls_ssl_config_defaults (mbedtls_ssl_config* conf, uint endpoint, uint transport, uint preset);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static void unity_mbedtls_ssl_conf_rng (mbedtls_ssl_config* conf, mbedtls_ctr_drbg_context* p_rng);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static int unity_mbedtls_ctr_drbg_seed (mbedtls_ctr_drbg_context* ctx, mbedtls_entropy_context* p_entropy, IntPtr input, IntPtr len);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static void unity_mbedtls_ssl_set_bio (mbedtls_ssl_context* ssl, IntPtr bio, IntPtr f_send, IntPtr f_recv, IntPtr f_recv_timeout);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static int unity_mbedtls_ssl_setup (mbedtls_ssl_context* ssl, mbedtls_ssl_config* conf);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static int unity_mbedtls_ssl_handshake (mbedtls_ssl_context* ssl);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static int unity_mbedtls_ssl_handshake_step (mbedtls_ssl_context* ssl);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static int unity_mbedtls_ssl_set_hostname (mbedtls_ssl_context* ssl, IntPtr hostname);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static void unity_mbedtls_ssl_conf_dbg (mbedtls_ssl_config* conf, IntPtr f_dbg, IntPtr p_dbg);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static void unity_mbedtls_debug_set_threshold (int level);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static void unity_mbedtls_ssl_conf_authmode (mbedtls_ssl_config* conf, uint authmode);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static int unity_mbedtls_ssl_read (mbedtls_ssl_context* ssl, IntPtr buf, int len);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static int unity_mbedtls_ssl_write (mbedtls_ssl_context* ssl, IntPtr buf, IntPtr len);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static void unity_mbedtls_strerror (int err, IntPtr buf, IntPtr len);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static mbedtls_x509_crt* unity_mbedtls_ssl_get_peer_cert (mbedtls_ssl_context* ssl);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static IntPtr unity_mbedtls_ssl_get_ciphersuite (mbedtls_ssl_context* ssl);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static int unity_mbedtls_ssl_get_ciphersuite_id (IntPtr ciphersuite_name);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static int unity_mbedtls_ssl_conf_own_cert (mbedtls_ssl_config* conf, mbedtls_x509_crt* own_cert, mbedtls_pk_context* pk_key);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static void unity_mbedtls_ssl_conf_ca_chain (mbedtls_ssl_config* conf, mbedtls_x509_crt*  ca_chain, IntPtr ca_crl);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static void unity_mbedtls_ssl_conf_verify (mbedtls_ssl_config* conf, IntPtr f_vrfy, IntPtr p_vrfy);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static void unity_mbedtls_ssl_conf_min_version (mbedtls_ssl_config* conf, int major, int minor);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static void unity_mbedtls_ssl_conf_max_version (mbedtls_ssl_config*  conf, int major, int minor);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static void unity_mbedtls_ssl_conf_ciphersuites (mbedtls_ssl_config* conf, IntPtr ciphersuites);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static int unity_mbedtls_ssl_get_state (mbedtls_ssl_context* ctx);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static int unity_mbedtls_ssl_get_minor_ver (mbedtls_ssl_context* ctx);
 
 		// --------------------------------
 		// X.509
 		// --------------------------------
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static mbedtls_x509_crt* unity_mbedtls_x509_crt_init ();
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static void unity_mbedtls_x509_crt_free (mbedtls_x509_crt* crt);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static int unity_mbedtls_x509_crt_parse (mbedtls_x509_crt* chain, IntPtr cert, IntPtr len);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static int unity_mbedtls_x509_crt_parse_file (mbedtls_x509_crt* chain, IntPtr path);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static mbedtls_x509_crt* unity_mbedtls_x509_crt_get_next (mbedtls_x509_crt* ctx);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static mbedtls_x509_buf unity_mbedtls_x509_crt_get_raw (mbedtls_x509_crt* ctx);
 
 		// --------------------------------
 		// Private/Public Key
 		// --------------------------------
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static mbedtls_pk_context* unity_mbedtls_pk_init ();
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static void unity_mbedtls_pk_free (mbedtls_pk_context* crt);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static int unity_mbedtls_pk_parse_key (mbedtls_pk_context* ctx, IntPtr key, IntPtr keylen, IntPtr pwd, IntPtr pwdlen);
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		extern internal static int unity_mbedtls_x509_crt_verify(mbedtls_x509_crt* crt, mbedtls_x509_crt* trust_ca, IntPtr ca_crl, IntPtr cn, ref uint flags);
 
 		// --------------------------------

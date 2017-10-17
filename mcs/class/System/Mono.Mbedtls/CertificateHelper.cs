@@ -33,11 +33,11 @@ namespace Mono.Mbedtls
 			DATATYPE_FILE = 2
 		}
 
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		static extern bool UnityPalSystemCertificatesEnumSystemCertificates(IntPtr certStore, ref IntPtr iter, out CertDataFormat format, out int size, out IntPtr data);
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		static extern IntPtr UnityPalSystemCertificatesOpenSystemRootStore();
-		[DllImport ("__Internal")]
+		[DllImport ("__Internal", CallingConvention=CallingConvention.Cdecl)]
 		static extern void UnityPalSystemCertificatesCloseSystemRootStore(IntPtr cStore);
 
 		public static void AddSystemCertificates(Mbedtls.mbedtls_x509_crt* chain)
