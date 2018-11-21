@@ -700,7 +700,7 @@ if ($build)
 		if($^O eq "linux")
 		{
 			$ndkName = "android-ndk/android-ndk-$ndkVersion-linux-x86_64.zip";
-			$sevenZip = "$externalBuildDeps/7z/win64/7za.exe";
+			$sevenZip = "$externalBuildDeps/7z/linux64/7za";
 		}
 		elsif($^O eq "darwin")
 		{
@@ -710,7 +710,7 @@ if ($build)
 		else
 		{
 			$ndkName = "android-ndk/android-ndk-$ndkVersion-windows-x86.zip";
-			$sevenZip = "$externalBuildDeps/7z/linux64/7za";
+			$sevenZip = "$externalBuildDeps/7z/win64/7za.exe";
 		}
 
 		my $depsNdkArchive = "$externalBuildDeps/$ndkName";
